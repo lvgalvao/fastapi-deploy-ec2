@@ -172,7 +172,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-DATABASE_URL = "postgresql+asyncpg://<username>:<password>@<rds-endpoint>:5432/<database-name>"
+DATABASE_URL = "postgresql+asyncpg://<username>:<password>@mydatabase.123456789012.us-east-1.rds.amazonaws.com:5432/<database-name>"
 
 engine = create_async_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=AsyncSession)
@@ -189,6 +189,7 @@ async def get_db():
 ```
 
 - Substitua `<username>`, `<password>`, `<rds-endpoint>` e `<database-name>` pelos detalhes do seu banco de dados RDS.
+
 
 #### 2.3. **Atualizar o Dockerfile**
 
