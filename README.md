@@ -42,8 +42,8 @@ sudo dnf install git -y
 ### 5. Clonar o Repositório
 
 ```bash
-git clone https://github.com/seu-usuario/fastapi-docker.git
-cd fastapi-docker
+git clone https://github.com/lvgalvao/fastapi-deploy-ec2
+ls
 ```
 
 ### 6. Instalar Docker
@@ -66,10 +66,10 @@ sudo usermod -aG docker ec2-user
 exit
 ```
 
-Reconecte-se à instância:
+Reconecte-se à instância
 
 ```bash
-ssh -i "seu-arquivo-chave.pem" ec2-user@<seu-endereco-ip>
+cd fastapi-deploy-ec2
 ```
 
 ### 9. Construir a Imagem Docker
