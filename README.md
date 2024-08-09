@@ -23,7 +23,6 @@ graph TD
         end
     end
 
-    B --> |Processes Requests, Stores and Retrieves Data| B
     B --> |Sends Responses| A
 ```
 
