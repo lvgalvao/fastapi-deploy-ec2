@@ -7,6 +7,26 @@ Este projeto demonstra como configurar e rodar uma aplicação FastAPI simples d
 - Uma conta AWS com permissões para criar instâncias EC2.
 - Conhecimento básico de Docker e FastAPI.
 
+## Objetivo
+
+Subir uma aplicação de FastAPI usando um Sqlite3 em uma máquina EC2
+
+```mermaid
+graph TD
+    A[Client] --> |HTTP Requests| B[EC2 Instance: FastAPI + SQLite3]
+
+    subgraph VPC["Virtual Private Cloud (VPC)"]
+        subgraph Subnet["Public Subnet"]
+            subgraph AZ["Availability Zone"]
+                B[EC2 Instance: FastAPI + SQLite3]
+            end
+        end
+    end
+
+    B --> |Processes Requests, Stores and Retrieves Data| B
+    B --> |Sends Responses| A
+```
+
 ## Passo a Passo
 
 ### 1. Configurar uma Instância EC2 na AWS
@@ -81,7 +101,7 @@ docker build -t fastapi-app .
 ### 10. Executar o Contêiner Docker
 
 ```bash
-docker run -p 8000:8000 fastapi-app
+docker run -p 80:80 fastapi-app
 ```
 
 ### 11. Acessar a Aplicação FastAPI
@@ -91,67 +111,3 @@ No seu navegador, acesse o aplicativo usando o IP público da instância EC2 na 
 ```
 http://<seu-endereco-ip>:8000/
 ```
-
-## Código de Exemplo FastAPI
-
-Aqui está um exemplo simples de uma aplicação FastAPI que você pode incluir no seu projeto:
-
-**`main.py`:**
-
-```python
-from fastapi import FastAPI
-
-app = FastAPI()
-
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: str = None):
-    return {"item_id": item_id, "q": q}
-```
-
-**`Dockerfile`:**
-
-```dockerfile
-# Use a imagem base Python 3.12.5 com Alpine 3.20
-FROM python:3.12.5-slim-bullseye
-
-# Defina o diretório de trabalho no contêiner
-WORKDIR /app
-
-# Copie o arquivo de requisitos para o contêiner
-COPY requirements.txt .
-
-# Instale as dependências do Python
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copie o restante da aplicação para o contêiner
-COPY . .
-
-# Exponha a porta que a aplicação utilizará
-EXPOSE 8000
-
-# Comando para rodar a aplicação FastAPI
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-**`requirements.txt`:**
-
-```text
-fastapi
-uvicorn
-```
-
-### 12. Verificar Regras de Segurança (Se necessário)
-
-Se você não conseguir acessar o aplicativo, verifique as **Regras de Segurança** para garantir que a porta 8000 está aberta.
-
-### Considerações Finais
-
-Com esses passos, você configurou uma instância EC2, clonou o repositório, construiu a imagem Docker, e executou uma aplicação FastAPI. Agora, você pode acessar e testar a aplicação no seu navegador.
-
----
-
-Este `README.md` pode ser ajustado conforme necessário para atender às especificidades do seu projeto. Se precisar de mais alguma coisa ou tiver alguma dúvida, estou aqui para ajudar!
