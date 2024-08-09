@@ -23,6 +23,7 @@ graph TD
         end
     end
 
+    B --> |Processes Requests, Stores and Retrieves Data| B
     B --> |Sends Responses| A
 ```
 
@@ -110,3 +111,133 @@ No seu navegador, acesse o aplicativo usando o IP público da instância EC2 na 
 ```
 http://<seu-endereco-ip>:8000/
 ```
+
+## Refatorando
+
+Para atender ao novo requisito de separar a aplicação FastAPI e usar um banco de dados PostgreSQL no Amazon RDS, você precisará seguir alguns passos para configurar a infraestrutura e modificar a aplicação FastAPI para se conectar ao PostgreSQL em vez de usar o SQLite localmente. Aqui está o passo a passo completo:
+
+### 1. **Configurar o Banco de Dados PostgreSQL no Amazon RDS**
+
+#### 1.1. **Crie uma Instância RDS PostgreSQL**
+
+1. **Acesse o AWS Management Console** e navegue até **RDS**.
+2. **Clique em "Create database"** (Criar banco de dados).
+3. **Selecione "Standard Create"**.
+4. **Escolha o mecanismo de banco de dados**: Selecione **PostgreSQL**.
+5. **Versão do PostgreSQL**: Selecione a versão desejada.
+6. **Configurações da Instância**:
+   - **Classe de Instância**: Escolha uma classe de instância (por exemplo, `db.t3.micro` para o nível gratuito).
+   - **Identificador da Instância**: Dê um nome para o seu banco de dados.
+   - **Usuário Mestre e Senha**: Defina o usuário e senha para acessar o banco de dados.
+7. **Configurações de Conectividade**:
+   - **VPC**: Selecione a mesma VPC onde a sua instância EC2 está localizada.
+   - **Subrede**: Escolha uma subrede pública ou privada, dependendo das suas necessidades.
+   - **Grupo de Segurança**: Configure um grupo de segurança que permita a conexão à porta 5432 (porta padrão do PostgreSQL) a partir da sua instância EC2.
+8. **Configurações Adicionais**:
+   - **Autenticação de Banco de Dados**: Deixe as configurações padrão ou ajuste conforme necessário.
+9. **Clique em "Create Database"** (Criar Banco de Dados).
+
+#### 1.2. **Configurar o Grupo de Segurança**
+
+1. Navegue até o **EC2 > Security Groups** (Grupos de Segurança).
+2. Encontre o grupo de segurança associado à sua instância RDS e clique em **Edit Inbound Rules** (Editar Regras de Entrada).
+3. **Adicione uma nova regra**:
+   - **Tipo**: PostgreSQL.
+   - **Porta**: 5432.
+   - **Source**: O grupo de segurança associado à sua instância EC2 (ou `0.0.0.0/0` para permitir acesso de qualquer lugar, mas isso é menos seguro).
+4. Salve as alterações.
+
+### 2. **Modificar a Aplicação FastAPI para Usar PostgreSQL**
+
+#### 2.1. **Atualizar as Dependências no `requirements.txt`**
+
+Certifique-se de incluir a biblioteca `asyncpg` para conectar-se ao PostgreSQL de forma assíncrona com SQLAlchemy:
+
+```text
+fastapi
+uvicorn
+sqlalchemy
+asyncpg
+```
+
+#### 2.2. **Configurar SQLAlchemy para Conectar ao PostgreSQL**
+
+Modifique o código da aplicação FastAPI para usar SQLAlchemy com PostgreSQL:
+
+**`main.py`**:
+
+```python
+from fastapi import FastAPI
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+
+DATABASE_URL = "postgresql+asyncpg://<username>:<password>@<rds-endpoint>:5432/<database-name>"
+
+engine = create_async_engine(DATABASE_URL, echo=True)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=AsyncSession)
+Base = declarative_base()
+
+app = FastAPI()
+
+# Dependency
+async def get_db():
+    async with SessionLocal() as session:
+        yield session
+
+# Example model and CRUD operations...
+```
+
+- Substitua `<username>`, `<password>`, `<rds-endpoint>` e `<database-name>` pelos detalhes do seu banco de dados RDS.
+
+#### 2.3. **Atualizar o Dockerfile**
+
+Se você estiver usando Docker, certifique-se de que o Dockerfile inclui as dependências corretas:
+
+```dockerfile
+# Use a imagem base Python 3.12.5 com Alpine 3.20
+FROM python:3.12.5-slim-bullseye
+
+# Defina o diretório de trabalho no contêiner
+WORKDIR /app
+
+# Copie o arquivo de requisitos para o contêiner
+COPY requirements.txt .
+
+# Instale as dependências do Python
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copie o restante da aplicação para o contêiner
+COPY . .
+
+# Exponha a porta que a aplicação utilizará
+EXPOSE 8000
+
+# Comando para rodar a aplicação FastAPI
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### 3. **Deploy e Teste**
+
+#### 3.1. **Construa a Imagem Docker**
+
+```bash
+docker build -t fastapi-app .
+```
+
+#### 3.2. **Execute o Contêiner Docker**
+
+```bash
+docker run -p 8000:8000 fastapi-app
+```
+
+#### 3.3. **Teste a Conexão ao PostgreSQL**
+
+Acesse o aplicativo via navegador ou ferramenta como `curl` ou Postman e teste se a aplicação FastAPI está se conectando corretamente ao banco de dados PostgreSQL no RDS.
+
+### 4. **Configurações de Segurança Adicionais (Opcional)**
+
+- Considere restringir o acesso ao banco de dados PostgreSQL usando políticas de rede mais estritas.
+- Verifique as configurações de backup e recuperação do RDS.
+
+Seguindo esses passos, você terá sua aplicação FastAPI separada do banco de dados, com o FastAPI rodando em uma instância EC2 e se conectando a um banco de dados PostgreSQL gerenciado pelo Amazon RDS.
