@@ -31,10 +31,21 @@ graph TD
 
 ### 0. Crie um repo novo clonando a aula 19
 
+- Crie um repo novo
 - Configure o Pyenv 3.12.3
 - Crie o .gitignore
 - Crie os arquivos do CRUD
 - Crie o Dockerfile
+
+Se quiser testar local
+
+```bash
+docker build -t fastapi-app .
+```
+
+```bash
+docker run -p 8000:8000 fastapi-app
+```
 
 ### 1. Configurar uma Instância EC2 na AWS
 
@@ -185,7 +196,7 @@ Certifique-se de incluir a biblioteca `asyncpg` para conectar-se ao PostgreSQL d
 fastapi
 uvicorn
 sqlalchemy
-asyncpg
+psycopg2-binary
 ```
 
 #### 2.2. **Configurar SQLAlchemy para Conectar ao PostgreSQL**
@@ -293,20 +304,41 @@ Instale DuckDB usando pip:
 pip3 install duckdb
 ```
 
+```bash
+export DATABASE_URL="postgresql://<username>:<password>@<rds-endpoint>:5432/<database-name>"
+```
+
 ### 3. **Abra o CLI do Python**
 
 Digite os seguintes pontos
 
-```python
+import os
 import duckdb
+
+# Carregar a URL de conexão do PostgreSQL a partir de uma variável de ambiente
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("A variável de ambiente DATABASE_URL não está definida")
 
 # Conectar ao banco de dados DuckDB (em memória)
 con = duckdb.connect()
 
+# Modificar a string de conexão para o formato esperado pelo DuckDB
+connection_params = {
+    'host': 'database-1.ct8uim0suar3.sa-east-1.rds.amazonaws.com',
+    'dbname': 'databasename',
+    'user': 'postgres',
+    'password': 'senhabancodedados123',
+    'port': 5432
+}
+
+connection_string = " ".join([f"{key}={value}" for key, value in connection_params.items()])
+
 # Executar a consulta para buscar dados da tabela 'items' no PostgreSQL
-result = con.execute("""
+result = con.execute(f"""
     SELECT * FROM postgres_scan(
-        'postgresql://<username>:<password>@<rds-endpoint>:5432/<database-name>',
+        '{connection_string}',
         'public',
         'items'
     );
