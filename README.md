@@ -31,10 +31,10 @@ graph TD
 
 ### 0. Crie um repo novo clonando a aula 19
 
-Configure o Pyenv 3.12.3
-Crie o .gitignore
-Crie os arquivos do CRUD
-Crie o Dockerfile
+- Configure o Pyenv 3.12.3
+- Crie o .gitignore
+- Crie os arquivos do CRUD
+- Crie o Dockerfile
 
 ### 1. Configurar uma Instância EC2 na AWS
 
