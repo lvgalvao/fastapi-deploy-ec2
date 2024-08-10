@@ -8,28 +8,53 @@ resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
 
   tags = {
-    Name = "main-vpc"
+    Name = "MainVPC"
   }
 }
 
-# Criar uma subnet pública para a EC2
-resource "aws_subnet" "public" {
+# Criar a primeira subnet pública para a EC2 na AZ1
+resource "aws_subnet" "public_a" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24"
+  cidr_block              = "10.0.10.0/24"
   map_public_ip_on_launch = true
+  availability_zone       = "sa-east-1a"
 
   tags = {
-    Name = "public-subnet"
+    Name = "PublicSubnetA"
   }
 }
 
-# Criar uma subnet privada para o PostgreSQL
-resource "aws_subnet" "private" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.2.0/24"
+# Criar a segunda subnet pública para a EC2 na AZ2
+resource "aws_subnet" "public_b" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.11.0/24"
+  map_public_ip_on_launch = true
+  availability_zone       = "sa-east-1b"
 
   tags = {
-    Name = "private-subnet"
+    Name = "PublicSubnetB"
+  }
+}
+
+# Criar a primeira subnet privada para o PostgreSQL na AZ1
+resource "aws_subnet" "private_a" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.20.0/24"
+  availability_zone = "sa-east-1a"
+
+  tags = {
+    Name = "PrivateSubnetA"
+  }
+}
+
+# Criar a segunda subnet privada para o PostgreSQL na AZ2
+resource "aws_subnet" "private_b" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.21.0/24"
+  availability_zone = "sa-east-1b"
+
+  tags = {
+    Name = "PrivateSubnetB"
   }
 }
 
@@ -38,7 +63,7 @@ resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "main-igw"
+    Name = "MainInternetGateway"
   }
 }
 
@@ -52,13 +77,18 @@ resource "aws_route_table" "public" {
   }
 
   tags = {
-    Name = "public-route-table"
+    Name = "PublicRouteTable"
   }
 }
 
-# Associar a tabela de roteamento pública à subnet pública
-resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.public.id
+# Associar a tabela de roteamento pública às subnets públicas
+resource "aws_route_table_association" "public_a" {
+  subnet_id      = aws_subnet.public_a.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "public_b" {
+  subnet_id      = aws_subnet.public_b.id
   route_table_id = aws_route_table.public.id
 }
 
@@ -66,13 +96,31 @@ resource "aws_route_table_association" "public" {
 resource "aws_security_group" "allow_ec2_rds" {
   vpc_id = aws_vpc.main.id
 
+  # Regra para permitir acesso à porta 5432 (PostgreSQL)
   ingress {
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
-    cidr_blocks = ["10.0.1.0/24"]  # Permitir tráfego da subnet pública
+    cidr_blocks = ["10.0.0.0/16"]  # Permitir tráfego da subnet privada
   }
 
+  # Regra para permitir acesso SSH (porta 22) de qualquer lugar
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # Permitir acesso SSH de qualquer lugar
+  }
+
+  # Regra para permitir acesso HTTP (porta 80) de qualquer lugar
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # Permitir acesso HTTP de qualquer lugar
+  }
+
+  # Regras de egress (saída) permitindo todo o tráfego de saída
   egress {
     from_port   = 0
     to_port     = 0
@@ -81,46 +129,51 @@ resource "aws_security_group" "allow_ec2_rds" {
   }
 
   tags = {
-    Name = "allow_ec2_rds"
+    Name = "AllowEC2RDS"
   }
 }
 
-# Criar um grupo de subnets para o RDS PostgreSQL
+# Criar um grupo de subnets para o RDS PostgreSQL cobrindo duas AZs
 resource "aws_db_subnet_group" "postgres" {
   name       = "postgres-subnet-group"
-  subnet_ids = [aws_subnet.private.id]
+  subnet_ids = [
+    aws_subnet.private_a.id,
+    aws_subnet.private_b.id
+  ]
 
   tags = {
-    Name = "Postgres Subnet Group"
+    Name = "PostgresSubnetGroup"
   }
 }
 
-# RDS PostgreSQL na subnet privada
+# RDS PostgreSQL com Multi-AZ Desativado
 resource "aws_db_instance" "postgres" {
   engine            = "postgres"
-  instance_class    = "db.t2.micro"
+  engine_version    = "16.3"  # Mantém a versão atual
+  instance_class    = "db.t3.micro"
   allocated_storage = 20
   db_name           = var.db_name
   username          = var.db_username
   password          = var.db_password
   publicly_accessible = false
+  multi_az          = false  # Desativando Multi-AZ
   vpc_security_group_ids = [aws_security_group.allow_ec2_rds.id]
   db_subnet_group_name = aws_db_subnet_group.postgres.name
   skip_final_snapshot = true
 
   tags = {
-    Name = "Terraform-Postgres"
+    Name = "PostgresDBInstance"
   }
 }
+
 
 # Instância EC2 na subnet pública
 resource "aws_instance" "web" {
   ami           = "ami-09523541dfaa61c85"
   instance_type = "t2.micro"
-  subnet_id     = aws_subnet.public.id
-  security_groups = [
-    aws_security_group.allow_ec2_rds.name
-  ]
+  subnet_id     = aws_subnet.public_a.id
+  
+  vpc_security_group_ids = [aws_security_group.allow_ec2_rds.id]
 
   user_data = base64encode(templatefile("user_data.sh.tpl", {
     db_username = var.db_username,
@@ -129,9 +182,9 @@ resource "aws_instance" "web" {
     db_name     = var.db_name
   }))
 
-  tags = {
-    Name = "Terraform-EC2"
-  }
-
   depends_on = [aws_db_instance.postgres]
+
+  tags = {
+    Name = "MyEC2Instance"
+  }
 }

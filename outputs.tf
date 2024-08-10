@@ -6,15 +6,30 @@ output "vpc_id" {
   description = "The ID of the VPC"
 }
 
-output "public_subnet_id" {
-  value       = aws_subnet.public.id
-  description = "The ID of the Public Subnet"
+# Output para a primeira subnet pública
+output "public_subnet_a_id" {
+  value       = aws_subnet.public_a.id
+  description = "The ID of the first public subnet"
 }
 
-output "private_subnet_id" {
-  value       = aws_subnet.private.id
-  description = "The ID of the Private Subnet"
+# Output para a segunda subnet pública
+output "public_subnet_b_id" {
+  value       = aws_subnet.public_b.id
+  description = "The ID of the second public subnet"
 }
+
+# Output para a primeira subnet privada
+output "private_subnet_a_id" {
+  value       = aws_subnet.private_a.id
+  description = "The ID of the first private subnet"
+}
+
+# Output para a segunda subnet privada
+output "private_subnet_b_id" {
+  value       = aws_subnet.private_b.id
+  description = "The ID of the second private subnet"
+}
+
 
 ###########################
 ########### EC2 ###########
