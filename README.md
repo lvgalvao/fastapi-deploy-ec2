@@ -116,6 +116,27 @@ http://<seu-endereco-ip>:8000/
 
 Para atender ao novo requisito de separar a aplicação FastAPI e usar um banco de dados PostgreSQL no Amazon RDS, você precisará seguir alguns passos para configurar a infraestrutura e modificar a aplicação FastAPI para se conectar ao PostgreSQL em vez de usar o SQLite localmente. Aqui está o passo a passo completo:
 
+```mermaid
+graph TD
+    A[Client] --> |HTTP Requests| B[EC2 Instance: FastAPI]
+
+    subgraph VPC["Virtual Private Cloud (VPC)"]
+        subgraph PublicSubnet["Public Subnet"]
+            subgraph AZ["Availability Zone"]
+                B[EC2 Instance: FastAPI]
+            end
+        end
+
+        subgraph PrivateSubnet["Private Subnet"]
+            C[RDS Instance: PostgreSQL]
+        end
+    end
+
+    B --> |SQL Queries| C
+    C --> |Stores and Retrieves Data| C
+    B --> |Sends Responses| A
+```
+
 ### 1. **Configurar o Banco de Dados PostgreSQL no Amazon RDS**
 
 #### 1.1. **Crie uma Instância RDS PostgreSQL**
@@ -172,20 +193,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-DATABASE_URL = "postgresql+asyncpg://postgres:senhabancodedados123@mydatabase.123456789012.us-east-1.rds.amazonaws.com:5432/<database-name>"
+import os
 
-engine = create_async_engine(DATABASE_URL, echo=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=AsyncSession)
-Base = declarative_base()
-
-app = FastAPI()
-
-# Dependency
-async def get_db():
-    async with SessionLocal() as session:
-        yield session
-
-# Example model and CRUD operations...
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 ```
 
 - Substitua `<username>`, `<password>`, `<rds-endpoint>` e `<database-name>` pelos detalhes do seu banco de dados RDS.
@@ -206,16 +216,16 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Instale as dependências do Python
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
 # Copie o restante da aplicação para o contêiner
 COPY . .
 
 # Exponha a porta que a aplicação utilizará
-EXPOSE 8000
+EXPOSE 80
 
 # Comando para rodar a aplicação FastAPI
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
 ```
 
 ### 3. **Deploy e Teste**
@@ -229,7 +239,7 @@ docker build -t fastapi-app .
 #### 3.2. **Execute o Contêiner Docker**
 
 ```bash
-docker run -p 8000:8000 fastapi-app
+docker run -p 80:80 -e DATABASE_URL="postgresql+psycopg2://postgres:senhabancodedados123@<url>m:5432/databasename" fastapi-app
 ```
 
 #### 3.3. **Teste a Conexão ao PostgreSQL**
@@ -242,3 +252,66 @@ Acesse o aplicativo via navegador ou ferramenta como `curl` ou Postman e teste s
 - Verifique as configurações de backup e recuperação do RDS.
 
 Seguindo esses passos, você terá sua aplicação FastAPI separada do banco de dados, com o FastAPI rodando em uma instância EC2 e se conectando a um banco de dados PostgreSQL gerenciado pelo Amazon RDS.
+
+Aqui está um README simplificado para o seu projeto, incorporando as instruções para instalar e usar o DuckDB para consultar uma tabela PostgreSQL:
+
+---
+
+# FastAPI with PostgreSQL Integration using DuckDB
+
+Este projeto demonstra como integrar uma aplicação FastAPI com um banco de dados PostgreSQL utilizando DuckDB para consultas. O projeto inclui instruções para configurar o ambiente em uma instância EC2, instalar DuckDB, e executar consultas SQL diretamente no PostgreSQL.
+
+## Pré-requisitos
+
+- Uma instância EC2 com Amazon Linux configurada.
+- Acesso a um banco de dados PostgreSQL (Amazon RDS ou similar).
+- Python 3 instalado na instância.
+
+## Configuração do Ambiente
+
+### 1. **Instalar Python 3 e pip**
+
+Se Python 3 e pip não estiverem instalados na instância, siga estes passos:
+
+```bash
+sudo yum install python3 -y
+sudo yum install python3-pip -y
+```
+
+### 2. **Instalar DuckDB**
+
+Instale DuckDB usando pip:
+
+```bash
+pip3 install duckdb
+```
+
+### 3. **Abra o CLI do Python**
+
+Digite os seguintes pontos
+
+```python
+import duckdb
+
+# Conectar ao banco de dados DuckDB (em memória)
+con = duckdb.connect()
+
+# Executar a consulta para buscar dados da tabela 'items' no PostgreSQL
+result = con.execute("""
+    SELECT * FROM postgres_scan(
+        'postgresql://<username>:<password>@<rds-endpoint>:5432/<database-name>',
+        'public',
+        'items'
+    );
+""").fetchall()
+
+# Exibir os resultados
+for row in result:
+    print(row)
+```
+
+Substitua `<username>`, `<password>`, `<rds-endpoint>`, e `<database-name>` pelas credenciais e detalhes do seu banco de dados PostgreSQL.
+
+### 4. **Verifique os Resultados**
+
+Os resultados da consulta serão impressos no terminal.
