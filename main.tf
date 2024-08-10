@@ -85,26 +85,13 @@ resource "aws_security_group" "allow_ec2_rds" {
   }
 }
 
-# Security Group para permitir acesso SSH à instância EC2
-resource "aws_security_group" "allow_ssh" {
-  vpc_id = aws_vpc.main.id
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+# Criar um grupo de subnets para o RDS PostgreSQL
+resource "aws_db_subnet_group" "postgres" {
+  name       = "postgres-subnet-group"
+  subnet_ids = [aws_subnet.private.id]
 
   tags = {
-    Name = "allow_ssh"
+    Name = "Postgres Subnet Group"
   }
 }
 
@@ -126,36 +113,25 @@ resource "aws_db_instance" "postgres" {
   }
 }
 
-# Criar um grupo de subnets para o RDS PostgreSQL
-resource "aws_db_subnet_group" "postgres" {
-  name       = "postgres-subnet-group"
-  subnet_ids = [aws_subnet.private.id]
-
-  tags = {
-    Name = "Postgres Subnet Group"
-  }
-}
-
 # Instância EC2 na subnet pública
 resource "aws_instance" "web" {
   ami           = "ami-09523541dfaa61c85"
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.public.id
   security_groups = [
-    aws_security_group.allow_ec2_rds.name,
-    aws_security_group.allow_ssh.name
+    aws_security_group.allow_ec2_rds.name
   ]
 
-  depends_on = [aws_db_instance.postgres]
-
-  user_data = templatefile("${path.module}/user_data.sh.tpl", {
+  user_data = base64encode(templatefile("user_data.sh.tpl", {
     db_username = var.db_username,
     db_password = var.db_password,
     db_address  = aws_db_instance.postgres.address,
     db_name     = var.db_name
-  })
+  }))
 
   tags = {
     Name = "Terraform-EC2"
   }
+
+  depends_on = [aws_db_instance.postgres]
 }
