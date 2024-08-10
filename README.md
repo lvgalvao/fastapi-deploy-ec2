@@ -172,7 +172,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-DATABASE_URL = "postgresql+asyncpg://<username>:<password>@mydatabase.123456789012.us-east-1.rds.amazonaws.com:5432/<database-name>"
+DATABASE_URL = "postgresql+asyncpg://postgres:senhabancodedados123@mydatabase.123456789012.us-east-1.rds.amazonaws.com:5432/<database-name>"
 
 engine = create_async_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=AsyncSession)
