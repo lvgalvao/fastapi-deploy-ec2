@@ -29,6 +29,13 @@ graph TD
 
 ## Passo a Passo
 
+### 0. Crie um repo novo clonando a aula 19
+
+Configure o Pyenv 3.12.3
+Crie o .gitignore
+Crie os arquivos do CRUD
+Crie o Dockerfile
+
 ### 1. Configurar uma Instância EC2 na AWS
 
 1. **Acesse o AWS Management Console**: Vá para [AWS Management Console](https://aws.amazon.com/console/) e faça login.
